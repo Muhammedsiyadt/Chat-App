@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
+import { useNavigate } from "react-router-dom";
 
 const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
 
@@ -13,6 +14,14 @@ export const useAuthStore = create((set, get) => ({
   isCheckingAuth: true,
   onlineUsers: [],
   socket: null,
+  isRequested: false,
+  request: null,
+  admin: false,
+  authAdmin: null,
+  admin_login: false,
+  isAdminLoggingIn: false,
+  isCheckingAdminAuth: false,
+
 
   checkAuth: async () => {
     try {
@@ -26,6 +35,31 @@ export const useAuthStore = create((set, get) => ({
     } finally {
       set({ isCheckingAuth: false });
     }
+  },
+
+  request: async (data) => {
+    set({ isRequested: true });
+    try {
+      console.log('Requesting access for:', data.email);
+      const res = await axiosInstance.post("/auth/request", data);
+      set({ request: res.data });
+      toast.success("Wait for Accept of Admin");
+      get().connectSocket();
+    } catch (error) {
+      console.log(error.response?.data?.message || error.message);
+      toast.error(error.response?.data?.message || "Something went wrong");
+    } finally {
+      set({ isSigningUp: false });
+    }
+  },
+
+  fetchRequests: async () => {
+    const response = await axiosInstance.get("/auth/requested-users");
+    return response.data;
+  },
+
+  acceptRequest: async (requestId) => {
+    await axiosInstance.post(`/auth/accept-request?id=${requestId}`); 
   },
 
   signup: async (data) => {
@@ -102,4 +136,68 @@ export const useAuthStore = create((set, get) => ({
   disconnectSocket: () => {
     if (get().socket?.connected) get().socket.disconnect();
   },
+
+  adminLoginAuth: async (formData) => {
+    console.log('Admin login button clicked..!!', formData);
+    set({ isAdminLoggingIn: true });
+
+    try {
+      const res = await axiosInstance.post("/auth/admin-login", formData);
+
+      // const { user, token } = res.data;
+
+      // Save token to localStorage
+      // localStorage.setItem('adminToken', token);
+
+      set({ authAdmin: res.data });
+      toast.success("Logged in successfully");
+
+      get().connectSocket();
+
+      // Navigate to /admin after successful login
+      const navigate = useNavigate();
+      navigate('/admin');
+    } catch (error) {
+      // toast.error(error.response?.data?.message || "An error occurred");
+      console.log('error')
+    } finally {
+      set({ isAdminLoggingIn: false });
+    }
+  },
+  checkAuthAdmin: async () => {
+    try {
+      const res = await axiosInstance.get("/auth/check-admin");
+      set({ authAdmin: res.data });
+      return res.data; // Return the admin data
+    } catch (error) {
+      console.log("Error in checkAuth:", error);
+      set({ authAdmin: null });
+      return null;
+    }
+  },
+  initializeAdminAuth: async () => {
+    try {
+      const admin = await get().checkAuthAdmin();
+      if (!admin) {
+        // Redirect if not authenticated
+        if (window.location.pathname !== "/admin-login") {
+          window.location.href = "/admin-login";
+        }
+      }
+    } catch (error) {
+      console.error("Admin auth initialization failed:", error);
+    }
+  },
+  adminLogout: async () => {
+    try {
+      await axiosInstance.post("/auth/adminLogout");
+      set({ authUser: null });
+      toast.success("Admin Logged out successfully");
+
+      window.location.href = "/admin-login"; // Ensures full reload and route redirect
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Logout failed");
+    }
+  },
+
 }));

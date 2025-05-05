@@ -13,18 +13,25 @@ import { useEffect } from "react";
 
 import { Loader } from "lucide-react";
 import { Toaster } from "react-hot-toast";
+import RequestPage from "./pages/RequestPage";
+import AdminRequestList from "./pages/AdminRequestList";
+import AdminLogin from "./pages/AdminLogin";
 
 const App = () => {
-  const { authUser, checkAuth, isCheckingAuth, onlineUsers } = useAuthStore();
+  const { authUser, checkAuth, isCheckingAuth, onlineUsers, authAdmin, checkAuthAdmin } = useAuthStore();
   const { theme } = useThemeStore();
 
-  console.log({ onlineUsers });
+  console.log({ authAdmin });
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+  }, []);
 
-  console.log({ authUser });
+  useEffect(() => {
+    checkAuthAdmin();
+  }, []);
+  
+
 
   if (isCheckingAuth && !authUser)
     return (
@@ -32,17 +39,27 @@ const App = () => {
         <Loader className="size-10 animate-spin" />
       </div>
     );
+    
 
   return (
     <div data-theme={theme}>
       <Navbar />
 
       <Routes>
-        <Route path="/" element={authUser ? <HomePage /> : <Navigate to="/login" />} />
+        {/* ADMIN ROUTES WITH PROTUCTION */}
+        <Route path="/admin" element={authAdmin ? <AdminRequestList /> : <Navigate to="/admin-login" />} />
+        <Route path="/admin-login" element={!authAdmin ? <AdminLogin /> : <Navigate to="/admin" />} />
+        
+        {/* ADMIN ROUTES WITH PROTUCTION */}
+
+        <Route path="/" element={authUser ? <HomePage /> : <Navigate to="/request" />} />
         <Route path="/signup" element={!authUser ? <SignUpPage /> : <Navigate to="/" />} />
         <Route path="/login" element={!authUser ? <LoginPage /> : <Navigate to="/" />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={authUser ? <ProfilePage /> : <Navigate to="/login" />} />
+
+        <Route path="/request" element={!authUser ? <RequestPage /> : <Navigate to="/login" />} />
+
       </Routes>
 
       <Toaster />

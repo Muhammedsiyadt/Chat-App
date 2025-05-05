@@ -41,10 +41,14 @@ export const sendMessage = async (req, res) => {
     const { id: receiverId } = req.params;
     const senderId = req.user._id;
 
+    // console.log(`text - ${text} :  image - ${image} `)   
+
     let imageUrl;
     if (image) {
       // Upload base64 image to cloudinary
-      const uploadResponse = await cloudinary.uploader.upload(image);
+      const uploadResponse = await cloudinary.uploader.upload(image, {
+        resource_type: "auto"
+      });
       imageUrl = uploadResponse.secure_url;
     }
 
@@ -68,3 +72,34 @@ export const sendMessage = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
+
+// DELETE FOR ME
+export const deleteForMe = async (req, res) => {
+  const { messageId, userId } = req.body;
+  try {
+    await Message.findByIdAndUpdate(messageId, {
+      $addToSet: { deletedFor: userId },
+    });
+    res.status(200).json({ message: "Message deleted for you." });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to delete for me." });
+  }
+};
+
+// DELETE FOR EVERYONE
+export const deleteForEveryone = async (req, res) => {
+  const { messageId } = req.body;
+  try {
+    await Message.findByIdAndUpdate(messageId, {
+      text: "This message was deleted",
+      image: null,
+      isDeleted: true,
+    });
+    res.status(200).json({ message: "Message deleted for everyone." });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to delete for everyone." });
+  }
+};
+

@@ -9,10 +9,26 @@ const MessageInput = () => {
   const fileInputRef = useRef(null);
   const { sendMessage } = useChatStore();
 
+  
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
+    if (!file) {
+      toast.error("Please select a file");
+      return;
+    }
+
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ];
+  
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Unsupported file type. Please upload image, PDF, or DOC.");
       return;
     }
 
@@ -80,11 +96,12 @@ const MessageInput = () => {
           />
           <input
             type="file"
-            accept="image/*"
+            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
             className="hidden"
             ref={fileInputRef}
             onChange={handleImageChange}
           />
+
 
           <button
             type="button"
