@@ -1,8 +1,12 @@
 import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
-
+import fs from "fs";
 import cloudinary from "../lib/cloudinary.js";
 import { getReceiverSocketId, io } from "../lib/socket.js";
+
+import Group from "../models/group.model.js";
+import GroupMessage from "../models/group.message.model.js";
+
 
 export const getUsersForSidebar = async (req, res) => {
   try {
@@ -75,6 +79,7 @@ export const sendMessage = async (req, res) => {
 
 
 
+
 // DELETE FOR ME
 export const deleteForMe = async (req, res) => {
   const { messageId, userId } = req.body;
@@ -103,3 +108,112 @@ export const deleteForEveryone = async (req, res) => {
   }
 };
 
+
+export const createGroup = async (req, res) => {
+  try {
+    const { name, members, createdBy } = req.body;
+
+    console.log("name, members, createdBy" + name, members, createdBy)
+
+    if (!name || !members?.length || !createdBy) {
+      return res.status(400).json({ message: "Missing required group data." });
+    }
+
+    // Ensure creator is included in members
+    const allMembers = [...new Set([createdBy, ...members])];
+    
+    const group = await Group.create({ 
+      name, 
+      members: allMembers, 
+      creator: createdBy 
+    });
+
+    // Emit socket event to all group members
+    allMembers.forEach(memberId => {
+      const receiverSocketId = getReceiverSocketId(memberId);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("new-group", group);
+      }
+    });
+
+    res.status(201).json(group);
+  } catch (error) {
+    console.error("Error creating group:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+export const sendGroupMessage = async (req, res) => {
+  try {
+    const groupId = req.params.groupId;
+    const { sender, text } = req.body;
+
+    // Validate sender membership
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    // console.log("sender " + sender)
+    // console.log("group.members " + group.members)
+
+    if (!group.members.includes(sender)) {
+      return res.status(403).json({ message: "You are not a member of this group" });
+    }
+
+    
+    const message = await GroupMessage.create({ groupId, sender, text });
+
+    
+    const populatedMessage = await GroupMessage.findById(message._id)
+      .populate("sender", "fullName profilePic");
+
+    
+    group.members.forEach(memberId => {
+      const receiverSocketId = getReceiverSocketId(memberId.toString());
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("group-message", populatedMessage);
+      }
+    });
+
+    res.status(201).json(populatedMessage);
+  } catch (error) {
+    console.error("Error sending group message:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+export const getGroupMessages = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    console.log('groupId - ' + groupId)
+
+    const messages = await GroupMessage.find({ groupId })
+      .populate("sender", "fullName profilePic")
+      .sort({ createdAt: 1 }); 
+
+    res.status(200).json(messages);
+  } catch (error) {
+    console.error("Error in getGroupMessages:", error.message);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+export const getUserGroups = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    if (!userId) return res.status(400).json({ message: "User ID is required." });
+
+    const groups = await Group.find({
+      members: userId,
+    }).populate("members", "fullName profilePic").populate("creator", "fullName"); 
+
+    res.status(200).json(groups);
+  } catch (error) {
+    console.error("Error fetching groups:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

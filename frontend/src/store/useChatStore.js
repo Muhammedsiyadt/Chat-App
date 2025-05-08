@@ -9,6 +9,10 @@ export const useChatStore = create((set, get) => ({
   selectedUser: null,
   isUsersLoading: false,
   isMessagesLoading: false,
+  groups: [],
+  selectedGroup: null,
+  groupMessages: [],
+  isGroupsLoading: false,
 
   getUsers: async () => {
     set({ isUsersLoading: true });
@@ -23,6 +27,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   getMessages: async (userId) => {
+    
     set({ isMessagesLoading: true });
     try {
       const res = await axiosInstance.get(`/messages/${userId}`);
@@ -102,7 +107,82 @@ export const useChatStore = create((set, get) => ({
       toast.error(error.response?.data?.message || "Delete for everyone failed");
     }
   },
+  createGroup: async (groupData) => {
+    try {
+      const res = await axiosInstance.post("/messages/create-group", groupData);
+      return res.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Group creation failed.");
+    }
+  },
+  
+  subscribeToGroupMessages: () => {
+    const { selectedGroup } = get();
+    if (!selectedGroup) return;
+  
+    const socket = useAuthStore.getState().socket;
+  
+    socket.on("newGroupMessage", (newMessage) => {
+      if (newMessage.groupId === selectedGroup._id) {
+        set({
+          groupMessages: [...get().groupMessages, newMessage],
+        });
+      }
+    });
+  },
+  
+  unsubscribeFromGroupMessages: () => {
+    const socket = useAuthStore.getState().socket;
+    socket.off("newGroupMessage");
+  },
+  
+  getGroupMessages: async (groupId) => {
+    set({ isMessagesLoading: true });
+    try {
+      const res = await axiosInstance.get(`/messages/group-messages/${groupId}`);
+      set({ groupMessages: res.data });
+    } catch (error) {
+      toast.error(error.response.data.message);
+    } finally {
+      set({ isMessagesLoading: false });
+    }
+  },
+  
+  sendGroupMessage: async (messageData) => {
+    const { selectedGroup, groupMessages } = get();
+
+    console.log("messageData " + JSON.stringify(messageData))
+    try {
+      const res = await axiosInstance.post(`/messages/send-group/${selectedGroup._id}`, messageData);
+      set({ groupMessages: [...groupMessages, res.data] });
+      return res.data;
+    } catch (error) {
+      toast.error(error.response.data.message);
+    }
+  },
+  
+  fetchUserGroups: async (userId) => {
+    try {
+      const res = await axiosInstance.get(`/messages/groups/${userId}`);
+      set({ groups: res.data });
+    } catch (error) {
+      console.error("Failed to fetch user groups", error);
+      toast.error("Failed to load groups");
+    }
+  },
   
 
-  setSelectedUser: (selectedUser) => set({ selectedUser }),
+  setSelectedGroup: (selectedGroup) => {
+    set({
+      selectedGroup,
+      messages: []  
+    });
+  },
+  setSelectedUser: (selectedUser) => {
+    set({ 
+      selectedUser,
+      selectedGroup: null, 
+      messages: [] 
+    });
+  },
 }));

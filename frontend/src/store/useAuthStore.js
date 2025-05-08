@@ -2,7 +2,6 @@ import { create } from "zustand";
 import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
-import { useNavigate } from "react-router-dom";
 
 const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
 
@@ -21,13 +20,20 @@ export const useAuthStore = create((set, get) => ({
   admin_login: false,
   isAdminLoggingIn: false,
   isCheckingAdminAuth: false,
-
+  
+  // Remove the redundant currentUser state
+  // currentUser: null,
 
   checkAuth: async () => {
     try {
       const res = await axiosInstance.get("/auth/check");
-
+      
       set({ authUser: res.data });
+      // Remove this line - no need for duplicate state
+      // set({currentUser: res.data._id})
+      
+      // console.log("Auth check successful. User ID: " + res.data._id);
+
       get().connectSocket();
     } catch (error) {
       console.log("Error in checkAuth:", error);
@@ -143,20 +149,16 @@ export const useAuthStore = create((set, get) => ({
 
     try {
       const res = await axiosInstance.post("/auth/admin-login", formData);
-
-      // const { user, token } = res.data;
-
-      // Save token to localStorage
-      // localStorage.setItem('adminToken', token);
-
       set({ authAdmin: res.data });
       toast.success("Logged in successfully");
-
       get().connectSocket();
-
-      // Navigate to /admin after successful login
+      
+      // This won't work properly - useNavigate must be used inside a component
       const navigate = useNavigate();
       navigate('/admin');
+      
+      // Instead, use this approach:
+      // window.location.href = '/admin';
     } catch (error) {
       // toast.error(error.response?.data?.message || "An error occurred");
       console.log('error')
@@ -164,6 +166,7 @@ export const useAuthStore = create((set, get) => ({
       set({ isAdminLoggingIn: false });
     }
   },
+  
   checkAuthAdmin: async () => {
     try {
       const res = await axiosInstance.get("/auth/check-admin");
@@ -175,6 +178,7 @@ export const useAuthStore = create((set, get) => ({
       return null;
     }
   },
+  
   initializeAdminAuth: async () => {
     try {
       const admin = await get().checkAuthAdmin();
@@ -188,16 +192,16 @@ export const useAuthStore = create((set, get) => ({
       console.error("Admin auth initialization failed:", error);
     }
   },
+  
   adminLogout: async () => {
     try {
       await axiosInstance.post("/auth/adminLogout");
       set({ authUser: null });
       toast.success("Admin Logged out successfully");
 
-      window.location.href = "/admin-login"; // Ensures full reload and route redirect
+      
     } catch (error) {
       toast.error(error.response?.data?.message || "Logout failed");
     }
   },
-
 }));

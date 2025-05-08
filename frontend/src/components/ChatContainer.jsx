@@ -1,6 +1,5 @@
 import { useChatStore } from "../store/useChatStore";
 import { useEffect, useRef, useState } from "react";
-
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeletons/MessageSkeleton";
@@ -10,31 +9,49 @@ import { formatMessageTime } from "../lib/utils";
 const ChatContainer = () => {
   const {
     messages,
+    groupMessages,
     getMessages,
+    getGroupMessages,
     isMessagesLoading,
     selectedUser,
+    selectedGroup,
     subscribeToMessages,
+    subscribeToGroupMessages,
     unsubscribeFromMessages,
+    unsubscribeFromGroupMessages,
     deleteMessageForMe,
     deleteMessageForEveryone,
+    sendMessage,
+    sendGroupMessage,
+    setSelectedUser
   } = useChatStore();
 
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
   const [previewImage, setPreviewImage] = useState(null);
-  const [activeMenu, setActiveMenu] = useState(null); // message ID for which menu is open
+  const [activeMenu, setActiveMenu] = useState(null);
+
+  // Determine if we're in a group chat or private chat
+  const isGroupChat = Boolean(selectedGroup);
 
   useEffect(() => {
-    getMessages(selectedUser._id);
-    subscribeToMessages();
-    return () => unsubscribeFromMessages();
-  }, [selectedUser._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
+    if (selectedUser) {
+      getMessages(selectedUser._id);
+      subscribeToMessages();
+      return () => unsubscribeFromMessages();
+    } else if (selectedGroup) {
+      setSelectedUser(null)
+      getGroupMessages(selectedGroup._id);
+      subscribeToGroupMessages();
+      return () => unsubscribeFromGroupMessages();
+    }
+  }, [selectedUser, selectedGroup]);
 
   useEffect(() => {
-    if (messageEndRef.current && messages) {
+    if (messageEndRef.current) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messages, groupMessages]);
 
   const handleDeleteForMe = (id) => {
     deleteMessageForMe(id);
@@ -56,16 +73,19 @@ const ChatContainer = () => {
     );
   }
 
+  // Get the current messages based on chat type
+  const currentMessages = isGroupChat ? groupMessages : messages;
+
   return (
     <div className="flex-1 flex flex-col overflow-auto relative">
       <ChatHeader />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message, index) => (
+        {currentMessages.map((message, index) => (
           <div
             key={message._id || index}
             className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"}`}
-            ref={index === messages.length - 1 ? messageEndRef : null}
+            ref={index === currentMessages.length - 1 ? messageEndRef : null}
           >
             <div className="chat-image avatar">
               <div className="size-10 rounded-full border">
@@ -73,7 +93,9 @@ const ChatContainer = () => {
                   src={
                     message.senderId === authUser._id
                       ? authUser.profilePic || "/avatar.png"
-                      : selectedUser.profilePic || "/avatar.png"
+                      : isGroupChat
+                        ? message.sender?.profilePic || "/avatar.png"
+                        : selectedUser?.profilePic || "/avatar.png"
                   }
                   alt="profile pic"
                 />
@@ -81,6 +103,11 @@ const ChatContainer = () => {
             </div>
 
             <div className="chat-header mb-1 flex items-center gap-2">
+              {isGroupChat && message.senderId !== authUser._id && (
+                <span className="font-medium">
+                  {message.sender?.fullName || "Unknown"}
+                </span>
+              )}
               <time className="text-xs opacity-50 ml-1">
                 {formatMessageTime(message.createdAt)}
               </time>
@@ -99,7 +126,7 @@ const ChatContainer = () => {
 
             <div className="chat-bubbl flex flex-col relative">
               {message.isDeleted ? (
-                <p className="italic text-gray-400">This message was deleted</p>
+                <p className="italic text-red-500">This message was deleted</p>
               ) : (
                 <>
                   {message.image && (
@@ -136,8 +163,8 @@ const ChatContainer = () => {
         ))}
       </div>
 
-      <MessageInput />
-
+      <MessageInput isGroupChat={isGroupChat} />
+      
       {/* IMAGE PREVIEW */}
       {previewImage && (
         <div
