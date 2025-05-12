@@ -146,29 +146,37 @@ export const createGroup = async (req, res) => {
 export const sendGroupMessage = async (req, res) => {
   try {
     const groupId = req.params.groupId;
-    const { sender, text } = req.body;
+    const { sender, text, image } = req.body;
 
-    // Validate sender membership
+    
     const group = await Group.findById(groupId);
     if (!group) {
       return res.status(404).json({ message: "Group not found" });
     }
 
-    // console.log("sender " + sender)
-    // console.log("group.members " + group.members)
-
     if (!group.members.includes(sender)) {
       return res.status(403).json({ message: "You are not a member of this group" });
     }
 
-    
-    const message = await GroupMessage.create({ groupId, sender, text });
+    let imageUrl;
+    if (image) {
+      
+      const uploadResponse = await cloudinary.uploader.upload(image, {
+        resource_type: "auto"
+      });
+      imageUrl = uploadResponse.secure_url;
+    }
 
-    
+    const message = await GroupMessage.create({
+      groupId,
+      sender,
+      text,
+      image: imageUrl
+    });
+
     const populatedMessage = await GroupMessage.findById(message._id)
       .populate("sender", "fullName profilePic");
 
-    
     group.members.forEach(memberId => {
       const receiverSocketId = getReceiverSocketId(memberId.toString());
       if (receiverSocketId) {
@@ -182,6 +190,7 @@ export const sendGroupMessage = async (req, res) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
+
 
 export const getGroupMessages = async (req, res) => {
   try {

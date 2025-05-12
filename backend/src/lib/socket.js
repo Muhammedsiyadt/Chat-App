@@ -28,6 +28,7 @@ io.on("connection", (socket) => {
     
     // Join group rooms for this user
     socket.on("join-groups", async (groups) => {
+      console.log("A group connected", groups);
       groups.forEach(groupId => {
         socket.join(groupId);
         if (!userGroupsMap[userId]) {
