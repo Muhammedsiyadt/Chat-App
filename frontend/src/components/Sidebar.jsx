@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import SidebarSkeleton from "./skeletons/SidebarSkeleton";
-import { Users, UserPlus } from "lucide-react";
+import { Users, UserPlus, MoreVertical } from "lucide-react";
 import toast from "react-hot-toast";
 
 const Sidebar = () => {
@@ -14,11 +14,13 @@ const Sidebar = () => {
   const { groups, fetchUserGroups, isGroupsLoading, createGroup } = useChatStore();
   const { setSelectedGroup, selectedGroup } = useChatStore();
 
-  // useEffect(() => {
-  //   console.log(selectedGroup)
-  // }, [selectedGroup])
+  const [activeGroupMenu, setActiveGroupMenu] = useState(null); // To show menu per group
+  const [showAddPeopleModal, setShowAddPeopleModal] = useState(false);
+  const [selectedGroupForEdit, setSelectedGroupForEdit] = useState(null);
+  const [selectedUsersToAdd, setSelectedUsersToAdd] = useState([]);
 
-  // The currentUser ID should be accessible via authUser._id if user is logged in
+
+
   const currentUserId = authUser?._id;
 
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
@@ -77,10 +79,26 @@ const Sidebar = () => {
     }
   };
 
-
-
-
-
+  const handleAddPeople = (group) => {
+    console.log('Add - ' + JSON.stringify(group))
+  };
+  
+  const handleRemovePeople = (group) => {
+    console.log('remove')
+  };
+  
+  const handleDeleteGroup = async (group) => {
+    const confirm = window.confirm(`Delete group "${group.name}"?`);
+    if (!confirm) return;
+  
+    try {
+      await deleteGroup(group._id); // define in store or API
+      toast.success("Group deleted successfully!");
+    } catch (error) {
+      toast.error("Failed to delete group.");
+    }
+  };
+  
 
   const filteredUsers = showOnlineOnly
     ? users.filter((user) => onlineUsers.includes(user._id))
@@ -122,16 +140,16 @@ const Sidebar = () => {
       <div className="overflow-y-auto w-full py-3">
         {filteredUsers.map((user) => (
           <button
-          key={user._id}
-          onClick={() => {
-            setSelectedUser(user);
-          }}
-          className={`
+            key={user._id}
+            onClick={() => {
+              setSelectedUser(user);
+            }}
+            className={`
             w-full p-3 flex items-center gap-3
             hover:bg-base-300 transition-colors
             ${selectedUser?._id === user._id ? "bg-base-300 ring-1 ring-base-300" : ""}
           `}
-        >
+          >
             <div className="relative mx-auto lg:mx-0">
               <img
                 src={user.profilePic || "/avatar.png"}
@@ -171,28 +189,124 @@ const Sidebar = () => {
           <div className="mt-3">Loading groups...</div>
         ) : (
           <div className="mt-3 space-y-2">
-            {groups.map(group => (
-              <button
-              key={group._id}
-              onClick={() => {
-                setSelectedGroup(group);
-              }}
-              className={`
-                w-full p-2 flex items-center gap-2 rounded
-                hover:bg-base-300 transition-colors
-                ${selectedGroup?._id === group._id ? "bg-base-300" : ""}
-              `}
-            >
-                <div className="bg-primary text-white rounded-full size-8 flex items-center justify-center">
-                  {group.name.charAt(0).toUpperCase()}
+            {groups.map((group) => (
+              <div
+                key={group._id}
+                className={`relative w-full p-2 flex items-center justify-between gap-2 rounded hover:bg-base-300 transition-colors ${selectedGroup?._id === group._id ? "bg-base-300" : ""
+                  }`}
+              >
+                <button
+                  onClick={() => setSelectedGroup(group)}
+                  className="flex items-center gap-2 flex-1 text-left"
+                >
+                  <div className="bg-primary text-white rounded-full size-8 flex items-center justify-center">
+                    {group.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="hidden lg:inline">{group.name}</span>
+                </button>
+
+                {/* 3-dot menu */}
+                <div className="relative group">
+                  <button className="p-1 hover:bg-gray-200 rounded">
+                    <span className="text-lg">⋮</span>
+                  </button>
+
+                  <div className="absolute right-0 top-8 z-10 hidden group-hover:flex flex-col bg-white shadow-md rounded w-36 border">
+                    <button
+                      onClick={() => handleAddPeople(group)}
+                      className="px-4 py-2 hover:bg-gray-100 text-left"
+                    >
+                      Add People
+                    </button>
+                    <button
+                      onClick={() => handleRemovePeople(group)}
+                      className="px-4 py-2 hover:bg-gray-100 text-left"
+                    >
+                      Remove People
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGroup(group)}
+                      className="px-4 py-2 hover:bg-red-100 text-left text-red-600"
+                    >
+                      Delete Group
+                    </button>
+                  </div>
                 </div>
-                <span className="hidden lg:inline">{group.name}</span>
-              </button>
+              </div>
             ))}
 
+
           </div>
+
+
         )}
       </div>
+
+
+      {showAddPeopleModal && selectedGroupForEdit && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-30 flex items-center justify-center">
+          <div className="bg-white p-6 rounded shadow-md w-[90%] max-w-md">
+            <h2 className="text-lg font-semibold mb-4">Add People to {selectedGroupForEdit.name}</h2>
+
+            <div className="max-h-60 overflow-y-auto border p-2 rounded space-y-2">
+              {users
+                .filter((user) => !selectedGroupForEdit.members.includes(user._id))
+                .map((user) => (
+                  <label
+                    key={user._id}
+                    className={`flex items-center gap-3 p-2 rounded hover:bg-gray-100 cursor-pointer transition-colors ${selectedUsersToAdd.includes(user._id) ? "bg-gray-200" : ""
+                      }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedUsersToAdd.includes(user._id)}
+                      onChange={() =>
+                        setSelectedUsersToAdd((prev) =>
+                          prev.includes(user._id)
+                            ? prev.filter((id) => id !== user._id)
+                            : [...prev, user._id]
+                        )
+                      }
+                      className="checkbox"
+                    />
+                    <img
+                      src={user.profilePic || "/avatar.png"}
+                      alt={user.fullName}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                    <div className="flex flex-col text-sm">
+                      <span>{user.fullName}</span>
+                    </div>
+                  </label>
+                ))}
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowAddPeopleModal(false);
+                  setSelectedUsersToAdd([]);
+                }}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // ✅ Update group in your store (e.g., addMembersToGroup(selectedGroupForEdit._id, selectedUsersToAdd))
+                  toast.success("People added!");
+                  setShowAddPeopleModal(false);
+                  setSelectedUsersToAdd([]);
+                }}
+                className="btn btn-primary"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {showCreateGroup && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-30 flex items-center justify-center">

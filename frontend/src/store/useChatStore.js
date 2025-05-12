@@ -117,7 +117,11 @@ export const useChatStore = create((set, get) => ({
   },
   
   subscribeToGroupMessages: () => {
-    const { selectedGroup } = get();
+    
+    const { selectedGroup, setSelectedUser, selectedUser } = get();
+    // if(selectedUser){
+    //   setSelectedUser(null)
+    // }
     if (!selectedGroup) return;
   
     const socket = useAuthStore.getState().socket;
@@ -137,6 +141,7 @@ export const useChatStore = create((set, get) => ({
   },
   
   getGroupMessages: async (groupId) => {
+    // console.log('Group Message is Loading...!!!')
     set({ isMessagesLoading: true });
     try {
       const res = await axiosInstance.get(`/messages/group-messages/${groupId}`);
@@ -151,7 +156,7 @@ export const useChatStore = create((set, get) => ({
   sendGroupMessage: async (messageData) => {
     const { selectedGroup, groupMessages } = get();
 
-    console.log("messageData " + JSON.stringify(messageData))
+    // console.log("messageData " + JSON.stringify(messageData))
     try {
       const res = await axiosInstance.post(`/messages/send-group/${selectedGroup._id}`, messageData);
       set({ groupMessages: [...groupMessages, res.data] });
@@ -170,9 +175,9 @@ export const useChatStore = create((set, get) => ({
       toast.error("Failed to load groups");
     }
   },
-  
 
   setSelectedGroup: (selectedGroup) => {
+    console.log(selectedGroup)
     set({
       selectedGroup,
       messages: []  

@@ -21,9 +21,7 @@ const ChatContainer = () => {
     unsubscribeFromGroupMessages,
     deleteMessageForMe,
     deleteMessageForEveryone,
-    sendMessage,
-    sendGroupMessage,
-    setSelectedUser
+    setSelectedUser,
   } = useChatStore();
 
   const { authUser } = useAuthStore();
@@ -39,13 +37,17 @@ const ChatContainer = () => {
       getMessages(selectedUser._id);
       subscribeToMessages();
       return () => unsubscribeFromMessages();
-    } else if (selectedGroup) {
-      setSelectedUser(null)
+    }
+  }, [selectedUser, selectedGroup]);
+
+  useEffect(() => {
+    if (selectedGroup) {
+      // setSelectedUser(null)
       getGroupMessages(selectedGroup._id);
       subscribeToGroupMessages();
       return () => unsubscribeFromGroupMessages();
     }
-  }, [selectedUser, selectedGroup]);
+  }, [selectedGroup])
 
   useEffect(() => {
     if (messageEndRef.current) {
@@ -76,16 +78,18 @@ const ChatContainer = () => {
   // Get the current messages based on chat type
   const currentMessages = isGroupChat ? groupMessages : messages;
 
+
   return (
     <div className="flex-1 flex flex-col overflow-auto relative">
       <ChatHeader />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {currentMessages.map((message, index) => (
+          
           <div
-            key={message._id || index}
-            className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"}`}
-            ref={index === currentMessages.length - 1 ? messageEndRef : null}
+          key={message._id || index}
+          className={`chat ${message?.sender?._id === authUser?._id ? "chat-end" : "chat-start"}`}
+          ref={index === currentMessages.length - 1 ? messageEndRef : null}
           >
             <div className="chat-image avatar">
               <div className="size-10 rounded-full border">
