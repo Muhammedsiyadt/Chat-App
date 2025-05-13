@@ -24,11 +24,10 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "https://chat-app-lac-chi.vercel.app/",
+    origin: "https://chat-app-ivory-kappa.vercel.app", // Remove trailing slash
     credentials: true,
   })
 );
-
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 
