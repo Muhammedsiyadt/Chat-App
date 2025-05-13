@@ -24,10 +24,11 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "https://chat-app-ivory-kappa.vercel.app", // Remove trailing slash
+    origin: ["http://localhost:5173", "https://chat-app-ivory-kappa.vercel.app"],
     credentials: true,
   })
 );
+
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 
